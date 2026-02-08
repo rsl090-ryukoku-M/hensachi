@@ -1,0 +1,17 @@
+[
+  { "model": "core.dataset", "pk": 1, "fields": { "slug": "osu", "name": "osu!" } },
+  { "model": "core.dataset", "pk": 2, "fields": { "slug": "maimai", "name": "maimai" } },
+  { "model": "core.dataset", "pk": 3, "fields": { "slug": "sdvx", "name": "SOUND VOLTEX" } },
+  { "model": "core.dataset", "pk": 4, "fields": { "slug": "apex-legends", "name": "Apex Legends" } },
+  { "model": "core.dataset", "pk": 5, "fields": { "slug": "valorant", "name": "VALORANT" } },
+
+  { "model": "core.metric", "pk": 101, "fields": { "dataset": 1, "key": "pp", "name": "Performance Points", "unit": "pp" } },
+  { "model": "core.metric", "pk": 102, "fields": { "dataset": 2, "key": "rating", "name": "Rating", "unit": "rating" } },
+  { "model": "core.metric", "pk": 103, "fields": { "dataset": 3, "key": "volforce", "name": "Volforce", "unit": "vf" } },
+
+  { "model": "core.metric", "pk": 201, "fields": { "dataset": 4, "key": "kd", "name": "Kill / Death", "unit": "" } },
+  { "model": "core.metric", "pk": 202, "fields": { "dataset": 4, "key": "rank_rp", "name": "Rank Point", "unit": "rp" } },
+
+  { "model": "core.metric", "pk": 301, "fields": { "dataset": 5, "key": "rr", "name": "Rank Rating", "unit": "rr" } },
+  { "model": "core.metric", "pk": 302, "fields": { "dataset": 5, "key": "hs_rate", "name": "Headshot Rate", "unit": "%" } }
+]

@@ -1,0 +1,7 @@
+SELECT ?item ?itemLabel ?elev WHERE {
+  ?item wdt:P31/wdt:P279* wd:Q8502 .
+  ?item wdt:P2044 ?elev .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". }
+}
+ORDER BY DESC(?elev)
+LIMIT 300

@@ -44,9 +44,11 @@ type ChartPoint = {
 };
 
 export default function UserMetricPage() {
-  const params = useParams<{ userMetricSlug?: string }>();
-  const userMetricSlug = params?.userMetricSlug;
+  // ✅ optional を外して「string」として扱う
+  const params = useParams<{ userMetricSlug: string }>();
+  const userMetricSlug = params.userMetricSlug;
 
+  // 実行時ガード（念のため）
   if (!userMetricSlug) {
     return (
       <main className="p-6 max-w-md mx-auto space-y-2">
@@ -106,10 +108,18 @@ export default function UserMetricPage() {
   const parsedValue = useMemo(() => {
     const s = value.trim();
     if (s === "")
-      return { ok: false as const, x: null as any, message: "値を入力してください" };
+      return {
+        ok: false as const,
+        x: null as any,
+        message: "値を入力してください",
+      };
     const x = Number(s);
     if (Number.isNaN(x))
-      return { ok: false as const, x: null as any, message: "数値を入力してください" };
+      return {
+        ok: false as const,
+        x: null as any,
+        message: "数値を入力してください",
+      };
     return { ok: true as const, x };
   }, [value]);
 
@@ -160,7 +170,6 @@ export default function UserMetricPage() {
   }
 
   const chartData: ChartPoint[] = useMemo(() => {
-    // history は「新しい順」で来るので、グラフは「古い→新しい」にする
     const items = [...history].reverse();
     const points: ChartPoint[] = [];
     for (let i = 0; i < items.length; i++) {
@@ -169,7 +178,9 @@ export default function UserMetricPage() {
       points.push({
         idx: i + 1,
         value: v,
-        label: items[i].created_at ? formatDateTime(items[i].created_at) : `#${i + 1}`,
+        label: items[i].created_at
+          ? formatDateTime(items[i].created_at)
+          : `#${i + 1}`,
       });
     }
     return points;
@@ -230,7 +241,8 @@ export default function UserMetricPage() {
             )}
             {result.top_percent != null && (
               <p className="text-gray-700">
-                上位: <span className="font-mono">{fmt2(result.top_percent)}</span> %
+                上位:{" "}
+                <span className="font-mono">{fmt2(result.top_percent)}</span> %
               </p>
             )}
           </div>

@@ -2,16 +2,17 @@ import type {
   Dataset,
   MetricHensachiResponse,
   UserMetricHensachiResponse,
-  ApexRankHensachiResponse,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
-
-if (!API_BASE) {
-  throw new Error("NEXT_PUBLIC_API_BASE is not set. Check .env.local");
+function getApiBase(): string {
+  return process.env.NEXT_PUBLIC_API_BASE ?? "";
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
+  const API_BASE = getApiBase();
+  if (!API_BASE) {
+    throw new Error("NEXT_PUBLIC_API_BASE is not set (Vercel Env or .env.local)");
+  }
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -21,10 +22,15 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const API_BASE = getApiBase();
+  if (!API_BASE) {
+    throw new Error("NEXT_PUBLIC_API_BASE is not set (Vercel Env or .env.local)");
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    cache: "no-store",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -60,12 +66,11 @@ export function submitUserValue(
   });
 }
 
-// --- hensachi response (extended) ---
 export type UserMetricHensachiExtendedResponse = UserMetricHensachiResponse & {
-  diff?: string; // x - mean
-  rank?: number; // 1 is best
-  percentile?: string; // 0-100 (lower -> higher)
-  top_percent?: string; // 0-100 (higher -> smaller)
+  diff?: string;
+  rank?: number;
+  percentile?: string;
+  top_percent?: string;
 };
 
 export function getUserMetricHensachi(userMetricSlug: string, x: number) {
@@ -74,7 +79,6 @@ export function getUserMetricHensachi(userMetricSlug: string, x: number) {
   );
 }
 
-// --- history ---
 export type UserMetricHistoryItem = {
   id: number;
   value: string;
@@ -102,7 +106,8 @@ export function getUserMetricHistory(
   );
 }
 
-// --- apex rank hensachi ---
+import type { ApexRankHensachiResponse } from "./types";
+
 export function getApexRankHensachi(rankCode: string) {
   return apiGet<ApexRankHensachiResponse>(`/apex/rank/hensachi/${rankCode}/`);
 }

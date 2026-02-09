@@ -1,287 +1,138 @@
 "use client";
+
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-
-// ✅ 相対import（@が壊れている前提）
-import type { ApexRankHensachiResponse } from "../../../src/lib/types";
-import { getApexRankHensachi } from "../../../src/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { getApexRankHensachi } from "@/lib/api";
+import type { ApexRankHensachiResponse } from "@/lib/types";
 
 type RankOption = { code: string; label: string };
 
-function roman(n: number) {
-  const map: Record<number, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
-  return map[n] ?? String(n);
-}
+const RANK_OPTIONS: RankOption[] = [
+  { code: "bronze-4", label: "Bronze IV" },
+  { code: "bronze-3", label: "Bronze III" },
+  { code: "bronze-2", label: "Bronze II" },
+  { code: "bronze-1", label: "Bronze I" },
+  { code: "silver-4", label: "Silver IV" },
+  { code: "silver-3", label: "Silver III" },
+  { code: "silver-2", label: "Silver II" },
+  { code: "silver-1", label: "Silver I" },
+  { code: "gold-4", label: "Gold IV" },
+  { code: "gold-3", label: "Gold III" },
+  { code: "gold-2", label: "Gold II" },
+  { code: "gold-1", label: "Gold I" },
+  { code: "platinum-4", label: "Platinum IV" },
+  { code: "platinum-3", label: "Platinum III" },
+  { code: "platinum-2", label: "Platinum II" },
+  { code: "platinum-1", label: "Platinum I" },
+  { code: "diamond-4", label: "Diamond IV" },
+  { code: "diamond-3", label: "Diamond III" },
+  { code: "diamond-2", label: "Diamond II" },
+  { code: "diamond-1", label: "Diamond I" },
+  { code: "master", label: "Master" },
+  { code: "predator", label: "Predator" },
+];
 
-function buildTierOptions(tier: string): RankOption[] {
-  return [4, 3, 2, 1].map((div) => ({
-    code: `${tier}-${div}`,
-    label: `${tier[0].toUpperCase()}${tier.slice(1)} ${roman(div)}`,
-  }));
-}
-
-function toNumberSafe(s?: string): number | null {
-  if (s == null) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
-function fmtPercent(n: number | null): string {
-  if (n == null) return "-";
-  // "7" でも "7.12" でも綺麗に出す
-  const rounded = Math.round(n * 100) / 100;
-  return `${rounded}%`;
-}
-
-function fmtHensachi(s?: string): string {
-  if (!s) return "-";
-  const n = Number(s);
-  if (!Number.isFinite(n)) return s;
-  return String(Math.round(n * 10) / 10);
-}
-
-function buildInsight(topP: number | null, bottomP: number | null): string {
-  if (topP != null) {
-    // top_percent: 小さいほど強い（上位◯%）
-    if (topP <= 1) return `かなり上位（上位${fmtPercent(topP)}）です。`;
-    if (topP <= 5) return `強い（上位${fmtPercent(topP)}）です。`;
-    if (topP <= 20) return `平均より上（上位${fmtPercent(topP)}）です。`;
-    if (topP <= 50) return `だいたい平均付近（上位${fmtPercent(topP)}）です。`;
-    return `まだ伸びしろ大（上位${fmtPercent(topP)}）です。`;
-  }
-  if (bottomP != null) {
-    // bottom_percent: 小さいほど弱い（下位◯%）
-    if (bottomP <= 20) return `平均より上（下位${fmtPercent(bottomP)}）です。`;
-    if (bottomP <= 50) return `だいたい平均付近（下位${fmtPercent(bottomP)}）です。`;
-    return `まだ伸びしろ大（下位${fmtPercent(bottomP)}）です。`;
-  }
-  return `分布情報が不足しているため、偏差値のみ表示しています。`;
+function fmt2(x: unknown): string {
+  const n = Number(x);
+  if (Number.isNaN(n)) return String(x ?? "");
+  return n.toFixed(2);
 }
 
 export default function ApexRankPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const options = useMemo<RankOption[]>(() => {
-    return [
-      ...buildTierOptions("bronze"),
-      ...buildTierOptions("silver"),
-      ...buildTierOptions("gold"),
-      ...buildTierOptions("platinum"),
-      ...buildTierOptions("diamond"),
-      { code: "master", label: "Master" },
-      { code: "predator", label: "Predator" },
-    ];
-  }, []);
-
   const initialRank = sp.get("rank") ?? "platinum-2";
 
   const [rankCode, setRankCode] = useState<string>(initialRank);
-  const [data, setData] = useState<ApexRankHensachiResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [data, setData] = useState<ApexRankHensachiResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchRank = useCallback(async (code: string) => {
-    setLoading(true);
-    setError("");
+  // URLに反映（共有用）
+  useEffect(() => {
+    const qs = new URLSearchParams();
+    qs.set("rank", rankCode);
+    router.replace(`/apex/rank?${qs.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankCode]);
+
+  const label = useMemo(() => {
+    return RANK_OPTIONS.find((r) => r.code === rankCode)?.label ?? rankCode;
+  }, [rankCode]);
+
+  async function onFetch() {
     try {
-      const res = await getApexRankHensachi(code);
+      setError(null);
+      setLoading(true);
+      const res = await getApexRankHensachi(rankCode);
       setData(res);
-    } catch (e) {
+    } catch (e: any) {
+      setError(e?.message ?? "fetch error");
       setData(null);
-      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    fetchRank(rankCode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const onChange = (next: string) => {
-    setRankCode(next);
-
-    // URL共有：クエリ更新
-    const qs = new URLSearchParams(Array.from(sp.entries()));
-    qs.set("rank", next);
-    router.replace(`/apex/rank?${qs.toString()}`);
-  };
-
-  const topP = toNumberSafe(data?.top_percent);
-  const bottomP = toNumberSafe(data?.bottom_percent);
-  const insight = buildInsight(topP, bottomP);
+  }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>
-        Apex ランク偏差値
-      </h1>
-      <p style={{ marginTop: 0, opacity: 0.85, marginBottom: 14 }}>
-        ランクを選ぶと、<b>偏差値</b>と<b>上位%</b>（または下位%）で位置づけを表示します。
+    <main className="p-6 max-w-xl mx-auto space-y-4">
+      <h1 className="text-2xl font-bold">Apex ランク偏差値</h1>
+      <p className="text-sm text-gray-600">
+        ランクを選んで「取得」を押すと、分布ベースで偏差値・上位%を表示します。
       </p>
 
-      {/* 操作 */}
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-          marginBottom: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <label style={{ fontWeight: 700 }}>ランク</label>
+      <div className="flex gap-2 items-center">
         <select
+          className="border p-2 rounded"
           value={rankCode}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ padding: "8px 10px", minWidth: 240 }}
+          onChange={(e) => setRankCode(e.target.value)}
         >
-          {options.map((o) => (
-            <option key={o.code} value={o.code}>
-              {o.label} ({o.code})
+          {RANK_OPTIONS.map((r) => (
+            <option key={r.code} value={r.code}>
+              {r.label}
             </option>
           ))}
         </select>
 
         <button
-          onClick={() => fetchRank(rankCode)}
+          className="bg-black text-white px-4 py-2 rounded disabled:opacity-50"
+          onClick={onFetch}
           disabled={loading}
-          style={{
-            padding: "8px 12px",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: 700,
-          }}
         >
-          {loading ? "取得中..." : "更新"}
+          {loading ? "取得中..." : "取得"}
         </button>
-
-        <span style={{ opacity: 0.75, fontSize: 13 }}>
-          共有URL: <code>?rank={rankCode}</code>
-        </span>
       </div>
 
-      {/* 目安説明 */}
-      <div
-        style={{
-          border: "1px solid #eee",
-          borderRadius: 10,
-          padding: 12,
-          marginBottom: 14,
-          background: "#fafafa",
-        }}
-      >
-        <div style={{ fontWeight: 800, marginBottom: 6 }}>偏差値の目安</div>
-        <ul style={{ margin: 0, paddingLeft: 18, opacity: 0.9 }}>
-          <li>
-            <b>50</b>：平均
-          </li>
-          <li>
-            <b>60</b>：平均よりかなり上
-          </li>
-          <li>
-            <b>70</b>：上位層（かなり強い）
-          </li>
-        </ul>
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-          ※ 上位% は「全体のうちどれくらい上にいるか」を直接示すので、初心者にも分かりやすいです。
-        </div>
+      <div className="text-xs text-gray-500">
+        選択中: <span className="font-mono">{label}</span>（
+        <span className="font-mono">{rankCode}</span>）
       </div>
 
-      {/* エラー */}
-      {error ? (
-        <div
-          style={{
-            border: "1px solid #ddd",
-            padding: 12,
-            borderRadius: 10,
-            marginBottom: 14,
-            background: "#fff",
-          }}
-        >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>エラー</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
-          <div style={{ marginTop: 8, opacity: 0.8, fontSize: 13 }}>
-            ※ backend側でその rank_code が未対応の場合もここに出ます。
-          </div>
+      {error && <p className="text-red-600">{error}</p>}
+
+      {data && (
+        <div className="border p-4 rounded space-y-2">
+          <p className="font-bold text-lg">偏差値: {fmt2(data.hensachi)}</p>
+          {data.top_percent != null && (
+            <p>上位: {fmt2(data.top_percent)} %</p>
+          )}
+          {data.bottom_percent != null && (
+            <p>下位: {fmt2(data.bottom_percent)} %</p>
+          )}
+          {data.meta && (
+            <details className="text-sm text-gray-600">
+              <summary className="cursor-pointer">meta</summary>
+              <pre className="text-xs overflow-auto mt-2">
+                {JSON.stringify(data.meta, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
-      ) : null}
-
-      {/* 結果 */}
-      <div
-        style={{
-          border: "1px solid #ddd",
-          padding: 16,
-          borderRadius: 12,
-          background: "#fff",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>結果</div>
-          <div style={{ opacity: 0.8 }}>{data?.rank_code ?? rankCode}</div>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          <div style={{ opacity: 0.8, fontSize: 13 }}>偏差値</div>
-          <div style={{ fontSize: 44, fontWeight: 900, lineHeight: 1.05 }}>
-            {fmtHensachi(data?.hensachi)}
-          </div>
-          <div style={{ marginTop: 6, fontWeight: 700 }}>{insight}</div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          <div style={{ border: "1px solid #eee", padding: 12, borderRadius: 10 }}>
-            <div style={{ opacity: 0.8, fontSize: 13 }}>上位%</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>
-              {fmtPercent(topP)}
-            </div>
-            <div style={{ opacity: 0.75, fontSize: 12, marginTop: 4 }}>
-              小さいほど強い（例：上位5%）
-            </div>
-          </div>
-
-          <div style={{ border: "1px solid #eee", padding: 12, borderRadius: 10 }}>
-            <div style={{ opacity: 0.8, fontSize: 13 }}>下位%</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>
-              {fmtPercent(bottomP)}
-            </div>
-            <div style={{ opacity: 0.75, fontSize: 12, marginTop: 4 }}>
-              小さいほど強い（例：下位20%）
-            </div>
-          </div>
-        </div>
-
-        <details style={{ marginTop: 12 }}>
-          <summary style={{ cursor: "pointer", fontWeight: 800 }}>
-            meta（詳細）
-          </summary>
-          <pre
-            style={{
-              marginTop: 10,
-              marginBottom: 0,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #eee",
-              overflowX: "auto",
-              fontSize: 12,
-              background: "#fafafa",
-            }}
-          >
-            {JSON.stringify(data?.meta ?? null, null, 2)}
-          </pre>
-        </details>
-      </div>
-    </div>
+      )}
+    </main>
   );
 }
 

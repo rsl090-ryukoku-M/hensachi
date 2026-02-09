@@ -2,6 +2,7 @@ import type {
   Dataset,
   MetricHensachiResponse,
   UserMetricHensachiResponse,
+  ApexRankHensachiResponse,
 } from "./types";
 
 function getApiBase(): string {
@@ -105,8 +106,6 @@ export function getUserMetricHistory(
     `/u/${userMetricSlug}/history/?${qs.toString()}`
   );
 }
-
-import type { ApexRankHensachiResponse } from "./types";
 
 export function getApexRankHensachi(rankCode: string) {
   return apiGet<ApexRankHensachiResponse>(`/apex/rank/hensachi/${rankCode}/`);
